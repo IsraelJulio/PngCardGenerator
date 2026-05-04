@@ -9,10 +9,12 @@ namespace PngCardGenerator.Api.Controllers;
 public class CardsController : ControllerBase
 {
     private readonly CardRendererService _cardRendererService;
+    private readonly CardTemplateService _cardTemplateService;
 
-    public CardsController(CardRendererService cardRendererService)
+    public CardsController(CardRendererService cardRendererService, CardTemplateService cardTemplateService)
     {
         _cardRendererService = cardRendererService;
+        _cardTemplateService = cardTemplateService;
     }
 
     [HttpPost("render")]
@@ -30,6 +32,18 @@ public class CardsController : ControllerBase
 
         var bytes = await _cardRendererService.RenderAsync(request, cancellationToken);
         return File(bytes, "image/png", $"card-{DateTime.UtcNow:yyyyMMddHHmmss}.png");
+    }
+
+    [HttpPost("render-from-template/{templateId:guid}")]
+    public async Task<IActionResult> RenderFromTemplate(Guid templateId, CancellationToken cancellationToken)
+    {
+        var request = await _cardTemplateService.BuildRenderRequestAsync(templateId, cancellationToken);
+        if (request is null)
+            return NotFound("Template not found.");
+
+        var bytes = await _cardRendererService.RenderAsync(request, cancellationToken);
+        await _cardTemplateService.RegisterGeneratedCardAsync(templateId, $"template-{templateId}", request, cancellationToken);
+        return File(bytes, "image/png", $"card-template-{templateId:N}-{DateTime.UtcNow:yyyyMMddHHmmss}.png");
     }
 
     [HttpGet("template/classic")]

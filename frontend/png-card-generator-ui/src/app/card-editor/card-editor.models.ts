@@ -32,3 +32,21 @@ export interface CardRenderRequest {
   height: number;
   layers: CardLayer[];
 }
+
+export interface CardTemplatePayload extends CardRenderRequest {
+  name: string;
+}
+
+export interface CardTemplateSummary {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  layerCount: number;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+}
+
+export interface CardTemplateDetails extends CardTemplateSummary {
+  layers: CardLayer[];
+}

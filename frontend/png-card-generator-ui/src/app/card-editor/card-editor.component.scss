@@ -140,6 +140,26 @@ input[type='file'] {
   display: none;
 }
 
+.helper-text {
+  margin: 0 0 14px;
+  color: rgba(255,255,255,.62);
+  font-size: 13px;
+}
+
+.saved-template {
+  margin-bottom: 14px;
+}
+
+.saved-template-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.saved-template-actions button {
+  flex: 1;
+}
+
 .layer-button {
   width: 100%;
   display: flex;

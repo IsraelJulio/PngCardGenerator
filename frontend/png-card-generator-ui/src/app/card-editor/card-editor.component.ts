@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { CardApiService } from './card-api.service';
-import { CardLayer } from './card-editor.models';
+import { CardLayer, CardTemplateDetails, CardTemplatePayload, CardTemplateSummary } from './card-editor.models';
 
 @Component({
   selector: 'app-card-editor',
@@ -8,19 +8,25 @@ import { CardLayer } from './card-editor.models';
   styleUrls: ['./card-editor.component.scss']
 })
 export class CardEditorComponent {
-  readonly cardWidth = 1024;
-  readonly cardHeight = 1400;
   readonly previewScale = 0.36;
 
+  cardWidth = 1024;
+  cardHeight = 1400;
   layers: CardLayer[] = [];
   selectedLayerId?: string;
   draggingLayerId?: string;
   dragOffsetX = 0;
   dragOffsetY = 0;
   rendering = false;
+  currentTemplateId?: string;
+  currentTemplateName = 'Template sem nome';
+  savedTemplates: CardTemplateSummary[] = [];
+  templatesLoading = false;
+  templateSaving = false;
 
   constructor(private readonly cardApi: CardApiService) {
     this.loadClassicTemplate();
+    this.loadTemplates();
   }
 
   get selectedLayer(): CardLayer | undefined {
@@ -32,6 +38,10 @@ export class CardEditorComponent {
   }
 
   loadClassicTemplate(): void {
+    this.currentTemplateId = undefined;
+    this.currentTemplateName = 'Template clássico local';
+    this.cardWidth = 1024;
+    this.cardHeight = 1400;
     this.layers = [
       this.createTextLayer('overall', '87', 165, 140, 150, 90, 76, 20),
       this.createTextLayer('position', 'ALA', 170, 235, 150, 60, 42, 21),
@@ -138,7 +148,7 @@ export class CardEditorComponent {
   removeSelected(): void {
     if (!this.selectedLayerId) return;
     this.layers = this.layers.filter(x => x.id !== this.selectedLayerId);
-    this.selectedLayerId = this.layers.at(-1)?.id;
+    this.selectedLayerId = this.layers.length > 0 ? this.layers[this.layers.length - 1].id : undefined;
   }
 
   moveLayerUp(): void {
@@ -178,8 +188,104 @@ export class CardEditorComponent {
     });
   }
 
+  saveTemplate(): void {
+    const payload = this.buildTemplatePayload();
+    this.templateSaving = true;
+
+    const request = this.currentTemplateId
+      ? this.cardApi.updateTemplate(this.currentTemplateId, payload)
+      : this.cardApi.createTemplate(payload);
+
+    request.subscribe({
+      next: template => {
+        this.applyTemplate(template);
+        this.templateSaving = false;
+        this.loadTemplates();
+      },
+      error: error => {
+        console.error(error);
+        alert('Erro ao salvar template. Confira a API e a conexão com o PostgreSQL.');
+        this.templateSaving = false;
+      }
+    });
+  }
+
+  loadTemplates(): void {
+    this.templatesLoading = true;
+
+    this.cardApi.listTemplates().subscribe({
+      next: templates => {
+        this.savedTemplates = templates;
+        this.templatesLoading = false;
+      },
+      error: error => {
+        console.error(error);
+        this.templatesLoading = false;
+      }
+    });
+  }
+
+  loadSavedTemplate(templateId: string): void {
+    this.cardApi.getTemplate(templateId).subscribe({
+      next: template => this.applyTemplate(template),
+      error: error => {
+        console.error(error);
+        alert('Não foi possível carregar o template salvo.');
+      }
+    });
+  }
+
+  duplicateTemplate(template: CardTemplateSummary): void {
+    this.cardApi.getTemplate(template.id).subscribe({
+      next: details => {
+        const copyPayload: CardTemplatePayload = {
+          name: `${details.name} cópia`,
+          width: details.width,
+          height: details.height,
+          layers: structuredClone(details.layers)
+        };
+
+        this.cardApi.createTemplate(copyPayload).subscribe({
+          next: created => {
+            this.applyTemplate(created);
+            this.loadTemplates();
+          },
+          error: error => {
+            console.error(error);
+            alert('Erro ao duplicar template.');
+          }
+        });
+      },
+      error: error => {
+        console.error(error);
+        alert('Erro ao ler o template para duplicar.');
+      }
+    });
+  }
+
+  deleteTemplate(template: CardTemplateSummary): void {
+    const confirmed = confirm(`Excluir o template "${template.name}"?`);
+    if (!confirmed) return;
+
+    this.cardApi.deleteTemplate(template.id).subscribe({
+      next: () => {
+        if (this.currentTemplateId === template.id) {
+          this.currentTemplateId = undefined;
+          this.currentTemplateName = 'Template removido';
+        }
+
+        this.loadTemplates();
+      },
+      error: error => {
+        console.error(error);
+        alert('Erro ao excluir template.');
+      }
+    });
+  }
+
   exportTemplate(): void {
     const content = JSON.stringify({
+      name: this.currentTemplateName,
       width: this.cardWidth,
       height: this.cardHeight,
       layers: this.layers
@@ -210,6 +316,10 @@ export class CardEditorComponent {
       return;
     }
 
+    this.currentTemplateId = undefined;
+    this.currentTemplateName = parsed.name || file.name.replace(/\.json$/i, '');
+    this.cardWidth = Number(parsed.width) || 1024;
+    this.cardHeight = Number(parsed.height) || 1400;
     this.layers = parsed.layers;
     this.selectedLayerId = this.layers[0]?.id;
     input.value = '';
@@ -297,6 +407,24 @@ export class CardEditorComponent {
     return {
       x: source.clientX - rect.left,
       y: source.clientY - rect.top
+    };
+  }
+
+  private applyTemplate(template: CardTemplateDetails): void {
+    this.currentTemplateId = template.id;
+    this.currentTemplateName = template.name;
+    this.cardWidth = template.width;
+    this.cardHeight = template.height;
+    this.layers = structuredClone(template.layers);
+    this.selectedLayerId = this.layers[0]?.id;
+  }
+
+  private buildTemplatePayload(): CardTemplatePayload {
+    return {
+      name: this.currentTemplateName.trim() || 'Template sem nome',
+      width: this.cardWidth,
+      height: this.cardHeight,
+      layers: this.layers
     };
   }
 }
