@@ -1,0 +1,201 @@
+<div class="page">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">PNG Card Generator • Etapa 5</p>
+      <h1>Editor visual de carta estilo FIFA</h1>
+      <p>Monte a carta por camadas, arraste elementos, ajuste textos e gere o PNG final pelo backend.</p>
+    </div>
+
+    <div class="hero-actions">
+      <button type="button" (click)="addTextLayer()">+ Texto</button>
+      <button type="button" (click)="duplicateSelected()">Duplicar</button>
+      <button type="button" class="danger" (click)="removeSelected()">Remover</button>
+      <button type="button" class="primary" [disabled]="rendering" (click)="render()">
+        {{ rendering ? 'Renderizando...' : 'Baixar PNG final' }}
+      </button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="panel">
+      <h2>Arquivos PNG</h2>
+
+      <label>
+        Base da carta
+        <input type="file" accept="image/png" (change)="onUpload($event, 'base-card')" />
+      </label>
+
+      <label>
+        Jogador / destaque
+        <input type="file" accept="image/png" (change)="onUpload($event, 'player')" />
+      </label>
+
+      <label>
+        Escudo
+        <input type="file" accept="image/png" (change)="onUpload($event, 'badge')" />
+      </label>
+
+      <div class="template-actions">
+        <button type="button" (click)="exportTemplate()">Exportar template</button>
+        <label class="import-template">
+          Importar template
+          <input type="file" accept="application/json" (change)="importTemplate($event)" />
+        </label>
+      </div>
+
+      <h2>Camadas</h2>
+
+      <button
+        *ngFor="let layer of orderedLayers"
+        type="button"
+        class="layer-button"
+        [class.active]="layer.id === selectedLayerId"
+        (click)="selectLayer(layer)"
+      >
+        <span>{{ layer.name }}</span>
+        <small>{{ layer.type }} • z{{ layer.zIndex }}</small>
+      </button>
+    </aside>
+
+    <section class="preview-zone">
+      <div
+        class="card-preview"
+        [style.width.px]="cardWidth * previewScale"
+        [style.height.px]="cardHeight * previewScale"
+        (mousemove)="moveDrag($event)"
+        (mouseup)="stopDrag()"
+        (mouseleave)="stopDrag()"
+        (touchmove)="moveDrag($event)"
+        (touchend)="stopDrag()"
+      >
+        <div class="fallback-card"></div>
+
+        <ng-container *ngFor="let layer of orderedLayers">
+          <img
+            *ngIf="layer.type === 'Image' && layer.imageBase64"
+            class="preview-layer"
+            [class.selected]="layer.id === selectedLayerId"
+            [src]="layer.imageBase64"
+            [style.left.px]="layer.x * previewScale"
+            [style.top.px]="layer.y * previewScale"
+            [style.width.px]="layer.width * previewScale"
+            [style.height.px]="layer.height * previewScale"
+            [style.opacity]="layer.opacity"
+            [style.zIndex]="layer.zIndex"
+            (mousedown)="startDrag($event, layer)"
+            (touchstart)="startDrag($event, layer)"
+          />
+
+          <div
+            *ngIf="layer.type === 'Text'"
+            class="preview-layer text-layer"
+            [class.selected]="layer.id === selectedLayerId"
+            [style.left.px]="layer.x * previewScale"
+            [style.top.px]="layer.y * previewScale"
+            [style.width.px]="layer.width * previewScale"
+            [style.height.px]="layer.height * previewScale"
+            [style.fontSize.px]="layer.fontSize * previewScale"
+            [style.color]="layer.colorHex"
+            [style.opacity]="layer.opacity"
+            [style.zIndex]="layer.zIndex"
+            [style.textAlign]="layer.textAlign.toLowerCase()"
+            [style.fontWeight]="layer.bold ? 800 : 400"
+            [style.textShadow]="'0 1px 2px ' + layer.strokeColorHex"
+            (mousedown)="startDrag($event, layer)"
+            (touchstart)="startDrag($event, layer)"
+          >
+            {{ layer.text }}
+          </div>
+        </ng-container>
+      </div>
+    </section>
+
+    <aside class="panel inspector" *ngIf="selectedLayer as layer">
+      <h2>Editar camada</h2>
+
+      <label>
+        Nome
+        <input [(ngModel)]="layer.name" />
+      </label>
+
+      <label *ngIf="layer.type === 'Text'">
+        Texto
+        <input [(ngModel)]="layer.text" />
+      </label>
+
+      <div class="grid">
+        <label>
+          X
+          <input type="number" [(ngModel)]="layer.x" />
+        </label>
+        <label>
+          Y
+          <input type="number" [(ngModel)]="layer.y" />
+        </label>
+      </div>
+
+      <div class="grid">
+        <label>
+          Largura
+          <input type="number" [(ngModel)]="layer.width" />
+        </label>
+        <label>
+          Altura
+          <input type="number" [(ngModel)]="layer.height" />
+        </label>
+      </div>
+
+      <label>
+        Opacidade
+        <input type="range" min="0" max="1" step="0.05" [(ngModel)]="layer.opacity" />
+      </label>
+
+      <ng-container *ngIf="layer.type === 'Text'">
+        <label>
+          Fonte
+          <input [(ngModel)]="layer.fontName" placeholder="Arial, Oswald..." />
+        </label>
+
+        <label>
+          Tamanho da fonte
+          <input type="number" [(ngModel)]="layer.fontSize" />
+        </label>
+
+        <div class="grid">
+          <label>
+            Cor
+            <input type="color" [(ngModel)]="layer.colorHex" />
+          </label>
+          <label>
+            Contorno
+            <input type="color" [(ngModel)]="layer.strokeColorHex" />
+          </label>
+        </div>
+
+        <label>
+          Espessura contorno
+          <input type="number" min="0" max="12" [(ngModel)]="layer.strokeThickness" />
+        </label>
+
+        <label class="checkbox">
+          <input type="checkbox" [(ngModel)]="layer.bold" />
+          Negrito
+        </label>
+
+        <label>
+          Alinhamento
+          <select [(ngModel)]="layer.textAlign">
+            <option value="Left">Esquerda</option>
+            <option value="Center">Centro</option>
+            <option value="Right">Direita</option>
+          </select>
+        </label>
+      </ng-container>
+
+      <div class="row-actions">
+        <button type="button" (click)="moveLayerDown()">Descer</button>
+        <button type="button" (click)="moveLayerUp()">Subir</button>
+      </div>
+    </aside>
+  </main>
+</div>

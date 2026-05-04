@@ -1,0 +1,34 @@
+{
+  "width": 1024,
+  "height": 1400,
+  "layers": [
+    {
+      "id": "player",
+      "type": 1,
+      "name": "Player Image",
+      "x": 180,
+      "y": 230,
+      "width": 660,
+      "height": 660,
+      "opacity": 1,
+      "zIndex": 2
+    },
+    {
+      "id": "name",
+      "type": 2,
+      "name": "Player Name",
+      "text": "JOGADOR",
+      "x": 512,
+      "y": 930,
+      "width": 700,
+      "height": 80,
+      "fontSize": 72,
+      "colorHex": "#FFFFFF",
+      "strokeColorHex": "#111111",
+      "strokeThickness": 2,
+      "bold": true,
+      "textAlign": 2,
+      "zIndex": 10
+    }
+  ]
+}
